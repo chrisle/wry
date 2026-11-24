@@ -901,8 +901,13 @@ impl InnerWebView {
 
         let js = {
           let mut js = PWSTR::null();
-          args.TryGetWebMessageAsString(&mut js)?;
-          take_pwstr(js)
+          match args.TryGetWebMessageAsString(&mut js) {
+            Ok(()) => take_pwstr(js),
+            // Other listeners may handle non-string web messages. A failure
+            // HRESULT here would prevent those listeners from receiving them.
+            Err(error) if error.code() == E_INVALIDARG => return Ok(()),
+            Err(error) => return Err(error),
+          }
         };
 
         #[cfg(feature = "tracing")]
